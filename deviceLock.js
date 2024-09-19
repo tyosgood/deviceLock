@@ -114,12 +114,22 @@ const IP_addr = await xapi.Status.Network[1].IPv4.Address.get()
 }
 
 function hideOSD(){
+  //turn off background darkening to show wallpaper at full brightness
+  xapi.Config.UserInterface.CustomWallpaperOverlay
+    .set('Off')
+    .catch((error) => { console.error('Config.UserInterface.CustomWallpaperOverlay:' + error);});
+  //hide OSD
   xapi.Config.UserInterface.OSD.Mode
           .set('Unobstructed')
           .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);});
 }
 
 function showOSD(){
+  //darken background so user can see icon text
+  xapi.Config.UserInterface.CustomWallpaperOverlay
+    .set('On')
+    .catch((error) => { console.error('Config.UserInterface.CustomWallpaperOverlay:' + error);});
+  //show the OSD
   xapi.Config.UserInterface.OSD.Mode
           .set('Auto')
           .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);});
