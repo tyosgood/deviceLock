@@ -1,6 +1,6 @@
 /**
  * Configure system to hide UI, sharing, turn on auto answer and lock volume and mute
- * Hold down the up (+) volume key for approx 5 sec and enter PIN to unlock system
+ * Hold down the up (+) volume key for approx 5 sec to display the IP address on the screen for 30 sec
  * 
  * Author: Tyler Osgood - tyosgood@cisco.com
  */
@@ -58,7 +58,7 @@ function init() {
       });
       
       xapi.Event.Audio.MicrophonesMuteStatus.on(value => {
-        if (value.Mute == "On"){ xapi.Command.Audio.Microphones.Unmute();
+        if (value.Mute == "On" && locked){ xapi.Command.Audio.Microphones.Unmute();
         
       }});
 
@@ -132,7 +132,10 @@ function hideOSD(){
           .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);
             return;
           });
-
+  
+  //unmute
+  xapi.Command.Audio.Microphones.Unmute()
+  
   //need to do this because if volume is above 90 it breaks the ability to hold down vol up button to show pin pad
   if (VOLUME > 90){
     VOLUME = 90;
