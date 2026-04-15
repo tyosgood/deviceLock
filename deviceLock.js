@@ -1,6 +1,6 @@
 /**
  * Configure system to hide UI, sharing, turn on auto answer and lock volume and mute
- * Hold down the up (+) volume key for approx 5 sec to display the IP address on the screen for 30 sec
+ * Hold down the up (+) volume key for approx 5 sec and enter PIN to unlock system
  * 
  * Author: Tyler Osgood - tyosgood@cisco.com
  */
@@ -8,7 +8,7 @@
 import xapi from 'xapi';
 
 //configurable variables
-const VOLUME = 50;  //max volume
+var VOLUME = 50;  //max volume
 
 const VRI_Addr = 't100070001@www.tcsvri.com';  //video address for VRI
 
@@ -22,6 +22,7 @@ const dialVRI_button = 'VRIbutton';
 const hideOSD_button = 'hideOSDbutton';
 const displayIP_button = 'displayIPbutton';
 var counter = [];
+var locked;
 
 
 
@@ -44,11 +45,18 @@ function init() {
     createButtons();
 
     //lock volume and mute
+    
       xapi.Status.Audio.Volume.on((volume) => {
-        xapi.Command.Audio.Volume.Set({ Level: VOLUME });
-        if (volume > VOLUME) countVol();
-        
+        if (locked) {
+          xapi.Command.Audio.Volume.Set({ Level: VOLUME });
+          if (volume > VOLUME) countVol();
+        }
+        else {VOLUME = volume};
+       
+              
+         
       });
+      
       xapi.Event.Audio.MicrophonesMuteStatus.on(value => {
         if (value.Mute == "On"){ xapi.Command.Audio.Microphones.Unmute();
         
@@ -62,12 +70,12 @@ function init() {
     xapi.Event.UserInterface.Message.TextInput.Response.on(value => {
         if (value.FeedbackId == panel && value.Text == PIN) {
             console.log('Valid PIN Entered - Unhiding OSD');
+            locked = false;
             return;
           } else {
             console.log('Invalid PIN Entered - Hiding OSD');
             hideOSD();
           }
-      
           
       });
       
@@ -121,7 +129,16 @@ function hideOSD(){
   //hide OSD
   xapi.Config.UserInterface.OSD.Mode
           .set('Unobstructed')
-          .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);});
+          .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);
+            return;
+          });
+
+  //need to do this because if volume is above 90 it breaks the ability to hold down vol up button to show pin pad
+  if (VOLUME > 90){
+    VOLUME = 90;
+    xapi.Command.Audio.Volume.Set({ Level: VOLUME });
+  }
+  locked = true;
 }
 
 function showOSD(){
@@ -132,7 +149,11 @@ function showOSD(){
   //show the OSD
   xapi.Config.UserInterface.OSD.Mode
           .set('Auto')
-          .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);});
+          .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);
+            return;
+          });
+  xapi.Command.Audio.Volume.Set({ Level: VOLUME });
+  
 }
 
 function askForPIN() {
