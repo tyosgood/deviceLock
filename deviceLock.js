@@ -3,18 +3,18 @@
  * Hold down the up (+) volume key for approx 5 sec to display the IP address on the screen for 30 sec
  * 
  * Author: Tyler Osgood - tyosgood@cisco.com
+ * Updated 5-28-26 to allow public to adjust voulme
  */
 
 import xapi from 'xapi';
 
 //configurable variables
-var VOLUME = 50;  //max volume
-
+var baseline_volume = 50;  //max volume
 const VRI_Addr = 't100070001@www.tcsvri.com';  //video address for VRI
-
 const PIN = '1234';  //Unlock PIN
-
-
+const volume_locked = false;   //lock the volume so it cannot be changed by the public
+const mute_locked = false;     //lock mute so it cannot be changed by the public - even if unlocked mute resets after call
+const volume_reset= true;      //reset the volume to the baseline level after each call
 
 //do not configure the following
 const panel = 'PIN';
@@ -22,7 +22,7 @@ const dialVRI_button = 'VRIbutton';
 const hideOSD_button = 'hideOSDbutton';
 const displayIP_button = 'displayIPbutton';
 var counter = [];
-var locked;
+
 
 
 
@@ -47,20 +47,35 @@ function init() {
     //lock volume and mute
     
       xapi.Status.Audio.Volume.on((volume) => {
-        if (locked) {
-          xapi.Command.Audio.Volume.Set({ Level: VOLUME });
-          if (volume > VOLUME) countVol();
+        if (volume > baseline_volume){
+          countVol();          
         }
-        else {VOLUME = volume};
-       
-              
-         
-      });
+        //need to do this because if volume is above 90 it breaks the ability to hold down vol up button to show pin pad
+        if (volume > 90){  
+          xapi.Command.Audio.Volume
+              .Set({ Level: 90 })
+              .catch((error) => { console.error('Command.Audio.Volume.Set: ' + error);});
+        }
+        if (volume_locked) {
+          xapi.Command.Audio.Volume
+              .Set({ Level: baseline_volume })
+              .catch((error) => { console.error('Command.Audio.Volume.Set: ' + error);});
+        }
+       });
       
       xapi.Event.Audio.MicrophonesMuteStatus.on(value => {
-        if (value.Mute == "On" && locked){ xapi.Command.Audio.Microphones.Unmute();
+        if (value.Mute == "On" && mute_locked){ xapi.Command.Audio.Microphones.Unmute()
+            .catch((error) => { console.error('Command.Audio.Microphones.Unmute: ' + error);});
         
       }});
+
+    xapi.Event.CallDisconnect.on(value =>{
+        if (volume_reset) {
+          xapi.Command.Audio.Volume
+              .Set({ Level: baseline_volume })
+              .catch((error) => { console.error('Command.Audio.Volume.Set: ' + error);});
+        }
+      });
 
     xapi.Event.UserInterface.Message.TextInput.Clear
         .on(value => {
@@ -70,7 +85,6 @@ function init() {
     xapi.Event.UserInterface.Message.TextInput.Response.on(value => {
         if (value.FeedbackId == panel && value.Text == PIN) {
             console.log('Valid PIN Entered - Unhiding OSD');
-            locked = false;
             return;
           } else {
             console.log('Invalid PIN Entered - Hiding OSD');
@@ -109,6 +123,9 @@ function countVol() {
           askForPIN();
           counter.length=0;
         }
+        xapi.Command.Audio.Volume
+              .Set({ Level: baseline_volume })
+              .catch((error) => { console.error('Command.Audio.Volume.Set: ' + error);});
       }
 }
 
@@ -135,13 +152,12 @@ function hideOSD(){
   
   //unmute
   xapi.Command.Audio.Microphones.Unmute()
+
+  xapi.Command.Audio.Volume
+              .Set({ Level: baseline_volume })
+              .catch((error) => { console.error('Command.Audio.Volume.Set: ' + error);});
   
-  //need to do this because if volume is above 90 it breaks the ability to hold down vol up button to show pin pad
-  if (VOLUME > 90){
-    VOLUME = 90;
-    xapi.Command.Audio.Volume.Set({ Level: VOLUME });
-  }
-  locked = true;
+   
 }
 
 function showOSD(){
@@ -155,7 +171,7 @@ function showOSD(){
           .catch((error) => { console.error('Config.UserInterface.OSD.Mode:' + error);
             return;
           });
-  xapi.Command.Audio.Volume.Set({ Level: VOLUME });
+  //xapi.Command.Audio.Volume.Set({ Level: baseline_volume });
   
 }
 
